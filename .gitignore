@@ -1,0 +1,9 @@
+.DS_Store
+.build/
+*.backup
+*.hex
+*.elf
+*.eep
+*.map
+pi/models/
+__pycache__/

@@ -1,0 +1,7 @@
+{
+  "arduino.useArduinoCli": true,
+  "arduino.disableIntelliSenseAutoGen": true,
+  "files.associations": {
+    "*.ino": "cpp"
+  }
+}

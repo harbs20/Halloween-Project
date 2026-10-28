@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Arduino: Build Uno",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/arduino.sh", "build"],
+      "group": {"kind": "build", "isDefault": true},
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Arduino: List Boards",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/arduino.sh", "boards"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Arduino: Upload Uno",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/arduino.sh", "upload", "${input:arduinoPort}"],
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Arduino: Install Dependencies",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/arduino.sh", "setup"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "arduinoPort",
+      "type": "promptString",
+      "description": "Board port from Arduino: List Boards (for example /dev/cu.usbmodem1101)"
+    }
+  ]
+}
