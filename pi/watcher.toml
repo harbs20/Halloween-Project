@@ -1,0 +1,63 @@
+# The Watcher - Raspberry Pi vision settings.
+# Edit and rerun watcher.py; no code changes are needed for calibration.
+
+[camera]
+# Size of the frames used for detection. 16:9 matches the IMX708 sensor, so
+# the full field of view is kept. Larger finds smaller/farther faces but is slower.
+width = 640
+height = 360
+fps = 30
+# Sensor mode. 2304x1296 is the IMX708's full-field 2x2 binned mode. Other modes
+# may crop the image, which makes the fov_deg values below wrong.
+sensor_width = 2304
+sensor_height = 1296
+# Real camera rotation, e.g. if it is mounted upside down set both to true.
+# This changes the actual coordinates (unlike the preview mirror option).
+hflip = false
+vflip = false
+
+[detector]
+model = "models/face_detection_yunet_2023mar.onnx"
+score_threshold = 0.7   # Lower finds more faces at angles but more false ones.
+nms_threshold = 0.3
+top_k = 50
+
+[tracking]
+hold_time_s = 0.6       # Missing longer than this -> LOST.
+smoothing_s = 0.15      # Bigger = smoother but slower. 0 = no smoothing.
+match_distance = 1.5    # Max movement per frame, in face widths, to stay locked.
+acquire_frames = 2      # Frames a new face must be seen before tracking starts.
+min_face_px = 20        # Ignore faces narrower than this many pixels.
+
+# Horizontal eye servo. Start with this narrow range and widen it only after
+# checking the mechanism by hand.
+[pan]
+enabled = true
+center_deg = 90
+min_deg = 80
+max_deg = 100
+reverse = false
+fov_deg = 66            # IMX708 standard lens horizontal FOV. Wide lens: 102.
+gain = 1.0
+deadband_deg = 0.5
+
+# Vertical eye servo (optional). Y increases downward, so with reverse = false
+# a face lower in the image gives a larger angle.
+[tilt]
+enabled = false
+center_deg = 90
+min_deg = 85
+max_deg = 95
+reverse = false
+fov_deg = 41            # IMX708 standard lens vertical FOV. Wide lens: 67.
+gain = 1.0
+deadband_deg = 0.5
+
+[output]
+print_hz = 5            # Terminal status lines per second.
+
+[serial]
+baud = 115200
+send_hz = 20            # Lines per second, sent even when nothing changes.
+reset_wait_s = 2.0      # An Uno restarts when the port opens; wait for it.
+echo = true             # Print lines the Arduino sends back.
