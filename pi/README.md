@@ -114,7 +114,8 @@ python3 watcher.py --serial /dev/ttyACM0
 The port is never guessed. Prefer the `/dev/serial/by-id/...` name shown by
 `--list-ports`, since it stays the same between reboots. If you get "permission
 denied", run `sudo usermod -aG dialout $USER`, then log out and back in. The
-Uno restarts when the port opens, so the script waits 2 s before sending.
+Uno restarts when the port opens, so the script waits for the sketch's `READY`
+line before sending. Upload the eye firmware first; see [../eye/README.md](../eye/README.md).
 
 ## Calibrating the eye
 

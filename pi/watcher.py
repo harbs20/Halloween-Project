@@ -88,10 +88,25 @@ class SerialLink:
         self.echo = cfg["echo"]
         self.next_send = 0.0
         self.rx = b""
-        print(f"Opened {port} at {cfg['baud']} baud; waiting {cfg['reset_wait_s']} s "
-              "for the Arduino to restart...")
-        time.sleep(cfg["reset_wait_s"])
-        self.ser.reset_input_buffer()
+        print(f"Opened {port} at {cfg['baud']} baud; waiting for the Arduino to restart...")
+        self._wait_ready(cfg["reset_wait_s"])
+
+    def _wait_ready(self, timeout: float) -> None:
+        """Opening the port restarts an Uno. Its sketch prints a READY line once
+        it is listening; wait for that instead of guessing a delay."""
+        deadline = time.monotonic() + timeout
+        buf = b""
+        while time.monotonic() < deadline:
+            buf += self.ser.read(64)
+            while b"\n" in buf:
+                raw, buf = buf.split(b"\n", 1)
+                text = raw.decode("ascii", "replace").strip()
+                if text.startswith("READY"):
+                    print(f"[arduino] {text}")
+                    return
+            time.sleep(0.01)
+        print(f"Warning: no READY from the Arduino after {timeout} s. "
+              "Is the eye sketch uploaded? Sending anyway.")
 
     def maybe_send(self, line: str, now: float, force: bool = False) -> None:
         if force or now >= self.next_send:

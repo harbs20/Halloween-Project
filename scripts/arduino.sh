@@ -11,6 +11,7 @@ else
   exit 1
 fi
 
+sketch="${SKETCH:-main}"  # SKETCH=eye builds the eye firmware
 action="${1:-build}"
 case "$action" in
   setup)
@@ -34,7 +35,7 @@ case "$action" in
       fi
       args+=(--upload --port "$2")
     fi
-    "$cli" "${args[@]}" "$repo_dir/main"
+    "$cli" "${args[@]}" "$repo_dir/$sketch"
     ;;
   *)
     echo 'Usage: bash scripts/arduino.sh {setup|build|boards|upload <port>}' >&2

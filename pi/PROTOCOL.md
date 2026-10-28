@@ -30,9 +30,13 @@ Timing:
 - A change of state is sent immediately.
 - When `watcher.py` stops normally it sends one final `L` line. If it crashes
   or the cable is unplugged, nothing is sent. The Arduino has to notice the silence.
-- The Arduino may print anything back (for example, `OK` or debug text). With
-  `echo = true` the Pi prints those lines as `[arduino] ...`. The Pi doesn't
-  need any reply.
+- Startup: opening the port restarts the Uno. The sketch prints
+  `READY watcher-eye` once it is listening. The Pi waits for that line (up to
+  `reset_wait_s`) before sending anything.
+- The Arduino may print other lines back. `eye/eye.ino` prints `MODE TRACKING`,
+  `MODE HOLD lost`, `MODE HOLD timeout`, `MODE REST`, and `BAD <count>` for
+  rejected lines (at most once a second). With `echo = true` the Pi prints
+  them as `[arduino] ...`. The Pi never needs a reply.
 
 The angles are **absolute targets**: "point the eye here". They aren't "move
 by this much". If the same face stays still, the same number keeps arriving.
@@ -41,8 +45,7 @@ by this much". If the same face stays still, the same number keeps arriving.
 
 The Pi already limits and smooths the angles, but treat its output as a request,
 not a command. A bug, a wrong config, or line noise on the Pi side must never
-be able to damage the eye. These are guidelines for your own firmware; the Pi
-code doesn't depend on how you implement them.
+be able to damage the eye. `eye/eye.ino` implements all of the points below.
 
 ### 1. Reject bad lines
 
@@ -76,9 +79,8 @@ Record `millis()` each time a valid line arrives. If no valid line has arrived
 for a timeout, act as if the state is `L`. About 500 ms is a reasonable
 timeout: ten missed messages at 20 Hz.
 
-The Uno also restarts when the Pi opens the serial port. That is why the Pi
-waits 2 s first. Your `setup()` should move the servos to center (or the idle
-pose) on its own, before any data arrives.
+The Uno also restarts when the Pi opens the serial port. `setup()` puts the
+servos at their rest position before any data arrives, then prints `READY`.
 
 ### 5. Decide what L means
 

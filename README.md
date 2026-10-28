@@ -4,6 +4,8 @@ Arduino Uno R3 code for the CS8 Spooktacular Halloween Project.
 
 The Raspberry Pi face tracking for the eye ("The Watcher") is in `pi/`. See
 `pi/README.md`. The Pi-to-Arduino serial format is in `pi/PROTOCOL.md`.
+The Arduino firmware that receives it and drives the eye servos is the `eye/`
+sketch (`SKETCH=eye bash scripts/arduino.sh build`); see `eye/README.md`.
 
 The real project folder is `~/CODE/Halloween Project`. The Dropbox `Code` path
 is a symlink to this folder.
