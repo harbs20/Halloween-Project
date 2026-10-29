@@ -50,7 +50,7 @@ center_deg = 90
 # Same limits as eyeDown / eyeUp in eye.ino. Widen slowly after testing.
 min_deg = 85
 max_deg = 95
-reverse = true          # Eye is upside down. Set false if it looks the wrong way.
+reverse = false         # Checked on the eye: not reversed.
 fov_deg = 41            # IMX708 standard lens vertical FOV. Wide lens: 67.
 gain = 2.0
 deadband_deg = 0.5
