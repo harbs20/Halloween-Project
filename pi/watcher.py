@@ -19,12 +19,16 @@ import tomllib
 from dataclasses import fields
 from pathlib import Path
 
+# The "thinking" (picking a face, smoothing, angle math) lives in tracking.py.
+# This file connects it to the camera, the face detector, and the Arduino.
 from tracking import AxisMapper, AxisSettings, Face, FaceTracker, State, TrackerSettings
 
+# Folder this script is in, so the model and settings are found from anywhere.
 HERE = Path(__file__).resolve().parent
 
 
 def load_config(path: Path) -> dict:
+    # Reads watcher.toml into a dictionary, e.g. cfg["pan"]["gain"].
     with open(path, "rb") as f:
         return tomllib.load(f)
 
@@ -47,16 +51,20 @@ class YuNetDetector:
         model = HERE / cfg["model"]
         if not model.exists():
             sys.exit(f"Model not found: {model}\nRun ./setup.sh to download it.")
+        # YuNet is a small neural network built into OpenCV. It needs the frame
+        # size up front, plus how confident it must be to count a face.
         self.net = cv2.FaceDetectorYN.create(
             str(model), "", (width, height),
             cfg["score_threshold"], cfg["nms_threshold"], cfg["top_k"],
         )
 
     def detect(self, frame) -> list[Face]:
+        # Finds every face in one camera frame.
         _, rows = self.net.detect(frame)
         if rows is None:
             return []
-        # Each row: x, y, w, h, 10 landmark values, score.
+        # Each row: x, y, w, h, 10 landmark values (eyes, nose, mouth), score.
+        # Only the box (top-left corner, width, height) and score are kept.
         return [Face(float(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[14]))
                 for r in rows]
 
@@ -66,6 +74,8 @@ def open_camera(cfg: dict):
     from picamera2 import Picamera2
 
     picam2 = Picamera2()
+    # The full-width sensor mode keeps the whole field of view, so the angle
+    # math (fov_deg) is correct. hflip/vflip are for a camera mounted rotated.
     config = picam2.create_preview_configuration(
         main={"size": (cfg["width"], cfg["height"]), "format": "RGB888"},  # BGR order for OpenCV
         sensor={"output_size": (cfg["sensor_width"], cfg["sensor_height"])},
@@ -83,6 +93,7 @@ class SerialLink:
     def __init__(self, port: str, cfg: dict):
         import serial
 
+        # timeout=0 means reads never wait, so the camera loop never stalls.
         self.ser = serial.Serial(port, cfg["baud"], timeout=0, write_timeout=0.1)
         self.period = 1.0 / cfg["send_hz"]
         self.echo = cfg["echo"]
@@ -109,12 +120,15 @@ class SerialLink:
               "Is the eye sketch uploaded? Sending anyway.")
 
     def maybe_send(self, line: str, now: float, force: bool = False) -> None:
+        # Sends at a steady rate (send_hz) even if nothing changed. The steady
+        # stream tells the Arduino the Pi is still alive.
         if force or now >= self.next_send:
             self.ser.write(line.encode("ascii") + b"\n")
             self.next_send = now + self.period
         self._read()
 
     def _read(self) -> None:
+        # Prints anything the Arduino sends back, one whole line at a time.
         self.rx += self.ser.read(256)
         while b"\n" in self.rx:
             raw, self.rx = self.rx.split(b"\n", 1)
@@ -126,6 +140,8 @@ class SerialLink:
 
 
 def protocol_line(state: State, pan: float, tilt: float) -> str:
+    # The message the Arduino reads: status, left-right angle, up-down angle.
+    # Example: "T,117,90". T = tracking, H = briefly missed, L = no face.
     return f"{state.value},{round(pan)},{round(tilt)}"
 
 
@@ -145,6 +161,7 @@ def draw_preview(frame, faces, result, pan, tilt, fps, mirror):
         x1, x2 = sorted((px(f.x), px(f.x + f.w)))
         cv2.rectangle(img, (x1, int(f.y)), (x2, int(f.y + f.h)), (160, 160, 160), 1)
 
+    # Green = tracking, yellow = holding, red = lost (OpenCV colors are BGR).
     colors = {State.TRACKING: (0, 255, 0), State.HOLDING: (0, 220, 255), State.LOST: (0, 0, 255)}
     color = colors[result.state]
     if result.face is not None:
@@ -199,12 +216,14 @@ def main() -> None:
         list_ports()
         return
 
+    # Build each part from the settings in watcher.toml.
     cfg = load_config(args.config)
     cam = cfg["camera"]
     tracker = FaceTracker(build(TrackerSettings, cfg["tracking"]), cam["width"], cam["height"])
-    pan = AxisMapper(build(AxisSettings, cfg["pan"]))
-    tilt = AxisMapper(build(AxisSettings, cfg["tilt"]))
+    pan = AxisMapper(build(AxisSettings, cfg["pan"]))    # left-right servo
+    tilt = AxisMapper(build(AxisSettings, cfg["tilt"]))  # up-down servo
     detector = YuNetDetector(cfg["detector"], cam["width"], cam["height"])
+    # Only talk to the Arduino if a port was given with --serial.
     link = SerialLink(args.serial, cfg["serial"]) if args.serial else None
     picam2 = open_camera(cam)
 
@@ -214,27 +233,36 @@ def main() -> None:
     state = None
     print("Running. Ctrl+C to stop.")
     try:
+        # Main loop: runs once per camera frame (about 30 times a second).
         while True:
+            # 1. Take a picture.
             frame = picam2.capture_array("main")
             now = time.monotonic()
-            fps = 0.9 * fps + 0.1 / max(now - last, 1e-6)
+            fps = 0.9 * fps + 0.1 / max(now - last, 1e-6)  # averaged frame rate
             last = now
 
+            # 2. Find all faces in the picture.
             faces = detector.detect(frame)
+            # 3. Pick one person and keep following them. Gives TRACKING,
+            #    HOLDING or LOST, plus a smoothed position from 0 to 1000.
             result = tracker.update(faces, now)
+            # 4. Turn that position into servo angles (gain, limits, reverse).
             pan_deg = pan.target(result.x)
             tilt_deg = tilt.target(result.y)
             line = protocol_line(result.state, pan_deg, tilt_deg)
 
+            # 5. Send the angles to the Arduino.
             changed = result.state != state
             state = result.state
             if link:
                 link.maybe_send(line, now, force=changed)  # State changes go out at once.
+            # 6. Print a status line a few times a second (print_hz).
             if changed or now >= next_print:
                 coords = "  ---,  ---" if result.x is None else f"{result.x:5.0f},{result.y:5.0f}"
                 print(f"{result.state.name:8} x,y={coords}  pan={pan_deg:5.1f}  "
                       f"tilt={tilt_deg:5.1f}  faces={len(faces)}  {fps:4.1f} fps  -> {line}")
                 next_print = now + print_period
+            # 7. Show the debug window if --preview was used. q or Esc quits.
             if args.preview:
                 key = draw_preview(frame, faces, result, pan_deg, tilt_deg, fps, args.mirror_preview)
                 if key in (ord("q"), 27):
@@ -242,6 +270,7 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        # On exit, send "L" so the eye goes back to center, then clean up.
         if link:
             link.maybe_send(protocol_line(State.LOST, pan.s.center_deg, tilt.s.center_deg),
                             time.monotonic(), force=True)
