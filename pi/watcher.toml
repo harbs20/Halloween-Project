@@ -37,7 +37,7 @@ center_deg = 90
 # Same limits as eyeLeft / eyeRight in eye.ino.
 min_deg = 50
 max_deg = 140
-reverse = false         # Reverse direction on the Arduino (reverseX) if needed.
+reverse = true          # Eye is mounted upside down. Keep reverseX = false in eye.ino.
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
 gain = 1.5              # >1 exaggerates movement; 1.5 reaches the full range.
 deadband_deg = 0.5

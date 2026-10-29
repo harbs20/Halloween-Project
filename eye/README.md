@@ -39,8 +39,9 @@ Keep these in sync with `pi/watcher.toml`:
 - **Limits:** the Arduino limits are the hard safety limits. Set the Pi's
   `min_deg`/`max_deg` the same or narrower.
 - **Center:** use the same `center_deg` on both.
-- **Reverse:** reverse direction in **one** place only. Use `reverseX` here and
-  leave `reverse = false` on the Pi.
+- **Reverse:** reverse direction in **one** place only, either `reverseX` here
+  or `reverse` in `pi/watcher.toml`, never both. The Pi is easier: no re-upload.
+  This build uses the Pi's `reverse = true` because the eye is upside down.
 
 To add this to `main.ino` later, copy the settings, variables, and
 `updateEye()`, call `updateEye()` from `loop()`, and change
