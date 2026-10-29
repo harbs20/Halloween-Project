@@ -24,7 +24,7 @@ top_k = 50
 
 [tracking]
 hold_time_s = 0.6       # Missing longer than this -> LOST.
-smoothing_s = 0.08      # Bigger = smoother but slower. 0 = no smoothing.
+smoothing_s = 0.05      # Bigger = smoother but slower. 0 = no smoothing.
 match_distance = 1.5    # Max movement per frame, in face widths, to stay locked.
 acquire_frames = 2      # Frames a new face must be seen before tracking starts.
 min_face_px = 20        # Ignore faces narrower than this many pixels.
@@ -39,7 +39,7 @@ min_deg = 50
 max_deg = 140
 reverse = true          # Eye is mounted upside down. Keep reverseX = false in eye.ino.
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
-gain = 1.5              # >1 exaggerates movement; 1.5 reaches the full range.
+gain = 2.0              # >1 exaggerates movement; 2.0 reaches both limits.
 deadband_deg = 0.5
 
 # Vertical eye servo (optional). Y increases downward, so with reverse = false
@@ -59,6 +59,6 @@ print_hz = 5            # Terminal status lines per second.
 
 [serial]
 baud = 115200
-send_hz = 20            # Lines per second, sent even when nothing changes.
+send_hz = 30            # Lines per second, sent even when nothing changes.
 reset_wait_s = 4.0      # Max wait for the Uno's READY line after it restarts.
 echo = true             # Print lines the Arduino sends back.

@@ -2,7 +2,7 @@
 // by @harbs20
 // CS8: Engineering - Spooktacular Halloween Project
 //
-// The Raspberry Pi sends a line like "T,94,90" about 20 times a second:
+// The Raspberry Pi sends a line like "T,94,90" about 30 times a second:
 //   T = tracking a face, H = face briefly missed, L = no face
 //   then the left-right angle and the up-down angle.
 // updateEye() reads those lines and moves the eye there

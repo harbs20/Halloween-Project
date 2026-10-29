@@ -25,7 +25,7 @@ L,90,90
 
 Timing:
 
-- About **20 lines per second** (`send_hz`), sent even when nothing has changed.
+- About **30 lines per second** (`send_hz`), sent even when nothing has changed.
   This steady stream is a heartbeat: silence means something is wrong.
 - A change of state is sent immediately.
 - When `watcher.py` stops normally it sends one final `L` line. If it crashes
@@ -75,7 +75,7 @@ makes the motion look more like a real eye. Start slow and speed it up later.
 
 Record `millis()` each time a valid line arrives. If no valid line has arrived
 for a timeout, act as if the state is `L`. About 500 ms is a reasonable
-timeout: ten missed messages at 20 Hz.
+timeout: fifteen missed messages at 30 Hz.
 
 The Uno also restarts when the Pi opens the serial port. `setup()` puts the
 servos at their rest position before any data arrives, then prints `READY`.
