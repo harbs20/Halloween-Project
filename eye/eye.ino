@@ -31,7 +31,7 @@ const bool reverseX = true;
 const bool reverseY = false;
 
 // Speed: milliseconds per 1 degree of movement
-const int trackSpeed = 10; // following a face (100 degrees per second)
+const int trackSpeed = 4;  // following a face (250 degrees per second)
 const int restSpeed = 50;  // going back to center (20 degrees per second)
 
 // No face (or no message from the Pi) for this long = go back to center

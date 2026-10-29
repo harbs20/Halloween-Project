@@ -24,7 +24,7 @@ top_k = 50
 
 [tracking]
 hold_time_s = 0.6       # Missing longer than this -> LOST.
-smoothing_s = 0.15      # Bigger = smoother but slower. 0 = no smoothing.
+smoothing_s = 0.08      # Bigger = smoother but slower. 0 = no smoothing.
 match_distance = 1.5    # Max movement per frame, in face widths, to stay locked.
 acquire_frames = 2      # Frames a new face must be seen before tracking starts.
 min_face_px = 20        # Ignore faces narrower than this many pixels.
@@ -40,7 +40,7 @@ min_deg = 40
 max_deg = 130
 reverse = false         # Direction is reversed on the Arduino (reverseX).
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
-gain = 1.0
+gain = 1.5              # >1 exaggerates movement; 1.5 reaches the full range.
 deadband_deg = 0.5
 
 # Vertical eye servo (optional). Y increases downward, so with reverse = false
