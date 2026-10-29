@@ -14,7 +14,7 @@ Servo eyeY; // up-down servo
 
 const int servoXPin = 9;
 const int servoYPin = 10;
-const bool useEyeY = false; // set to true when the up-down servo is added
+const bool useEyeY = true;  // up-down servo on pin 10
 
 // Eye movement limits. The eye is never moved past these.
 const int eyeLeft = 50;
@@ -30,7 +30,7 @@ const int eyeCenterY = 90;
 const bool reverseX = false;
 const bool reverseY = false;
 
-const int trackSpeed = 4;  
+const int trackSpeed = 2;  // ms per degree while tracking (500 degrees per second)
 const int restSpeed = 50;  
 
 // No face (or no message from the Pi) for this long = go back to center

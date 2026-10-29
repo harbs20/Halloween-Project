@@ -24,7 +24,7 @@ top_k = 50
 
 [tracking]
 hold_time_s = 0.6       # Missing longer than this -> LOST.
-smoothing_s = 0.05      # Bigger = smoother but slower. 0 = no smoothing.
+smoothing_s = 0.03      # Bigger = smoother but slower. 0 = no smoothing.
 match_distance = 1.5    # Max movement per frame, in face widths, to stay locked.
 acquire_frames = 2      # Frames a new face must be seen before tracking starts.
 min_face_px = 20        # Ignore faces narrower than this many pixels.
@@ -39,19 +39,20 @@ min_deg = 50
 max_deg = 140
 reverse = true          # Eye is mounted upside down. Keep reverseX = false in eye.ino.
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
-gain = 2.0              # >1 exaggerates movement; 2.0 reaches both limits.
+gain = 2.5              # >1 exaggerates movement. Higher = small steps swing the eye further.
 deadband_deg = 0.5
 
 # Vertical eye servo (optional). Y increases downward, so with reverse = false
 # a face lower in the image gives a larger angle.
 [tilt]
-enabled = false
+enabled = true
 center_deg = 90
+# Same limits as eyeDown / eyeUp in eye.ino. Widen slowly after testing.
 min_deg = 85
 max_deg = 95
-reverse = false
+reverse = true          # Eye is upside down. Set false if it looks the wrong way.
 fov_deg = 41            # IMX708 standard lens vertical FOV. Wide lens: 67.
-gain = 1.0
+gain = 2.0
 deadband_deg = 0.5
 
 [output]
