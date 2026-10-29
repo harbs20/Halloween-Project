@@ -5,7 +5,7 @@
 // The Raspberry Pi sends a line like "T,94,90" about 20 times a second:
 //   T = tracking a face, H = face briefly missed, L = no face
 //   then the left-right angle and the up-down angle.
-// updateEye() reads those lines and moves the eye there, slowly and safely.
+// updateEye() reads those lines and moves the eye there
 
 #include <Servo.h>
 
@@ -27,12 +27,11 @@ const int eyeCenterX = 90;
 const int eyeCenterY = 90;
 
 // Set to true if the eye moves the wrong way
-const bool reverseX = true;
+const bool reverseX = false;
 const bool reverseY = false;
 
-// Speed: milliseconds per 1 degree of movement
-const int trackSpeed = 4;  // following a face (250 degrees per second)
-const int restSpeed = 50;  // going back to center (20 degrees per second)
+const int trackSpeed = 4;  
+const int restSpeed = 50;  
 
 // No face (or no message from the Pi) for this long = go back to center
 const unsigned long lostTime = 1500;
@@ -44,7 +43,7 @@ int targetY = eyeCenterY;
 unsigned long lastFaceTime = 0;
 unsigned long lastMoveTime = 0;
 
-char message[12];       // the line being received from the Pi
+char message[12];       
 int messageLength = 0;
 
 void setup() {

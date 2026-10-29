@@ -34,11 +34,10 @@ min_face_px = 20        # Ignore faces narrower than this many pixels.
 [pan]
 enabled = true
 center_deg = 90
-# eye.ino has eyeLeft = 50, eyeRight = 140 and reverseX = true, so it mirrors
-# the angle around 90. The matching Pi range is the mirror: 40-130.
-min_deg = 40
-max_deg = 130
-reverse = false         # Direction is reversed on the Arduino (reverseX).
+# Same limits as eyeLeft / eyeRight in eye.ino.
+min_deg = 50
+max_deg = 140
+reverse = false         # Reverse direction on the Arduino (reverseX) if needed.
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
 gain = 1.5              # >1 exaggerates movement; 1.5 reaches the full range.
 deadband_deg = 0.5
