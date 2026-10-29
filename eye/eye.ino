@@ -1,266 +1,136 @@
-// The Watcher - eye servo firmware
+// The Watcher - eye servo code
 // by @harbs20
 // CS8: Engineering - Spooktacular Halloween Project
 //
-// Receives face-tracking targets from the Raspberry Pi over USB serial
-// (pi/watcher.py, format in pi/PROTOCOL.md) and moves the eye servo(s).
-// The Arduino has the final say: it clamps every angle to the mechanical
-// limits below, limits speed, and returns the eye to rest when tracking stops.
+// The Raspberry Pi sends a line like "T,94,90" about 20 times a second:
+//   T = tracking a face, H = face briefly missed, L = no face
+//   then the left-right angle and the up-down angle.
+// updateEye() reads those lines and moves the eye there, slowly and safely.
 
-#include <Arduino.h>
 #include <Servo.h>
-#include "protocol.h"
 
-// ---------------- Settings ----------------
+Servo eyeX; // left-right servo
+Servo eyeY; // up-down servo
 
-// One servo axis. Angles are in degrees, like the Pi sends.
-struct AxisConfig {
-  int pin;
-  bool enabled;    // false = servo not attached, Pi angles ignored
-  int centerDeg;   // straight ahead; reversal mirrors around this angle
-  int minDeg;      // mechanical limits: the eye is never driven past these
-  int maxDeg;
-  int restDeg;     // where the eye goes when nobody is tracked
-  bool reverse;    // true if the eye moves the wrong way
-};
+const int servoXPin = 9;
+const int servoYPin = 10;
+const bool useEyeY = false; // set to true when the up-down servo is added
 
-// Conservative limits for first tests. Widen them only after checking the
-// linkage by hand. Use the same center on the Pi ([pan] center_deg).
-const AxisConfig panConfig  = {9,  true,  90, 80, 100, 90, false};
-const AxisConfig tiltConfig = {10, false, 90, 85, 95,  90, false};
+// Eye movement limits. The eye is never moved past these.
+const int eyeLeft = 80;
+const int eyeRight = 100;
+const int eyeDown = 85;
+const int eyeUp = 95;
 
-const long baudRate = 115200;          // must match pi/watcher.toml
+// Where the eye looks when nobody is there
+const int eyeCenterX = 90;
+const int eyeCenterY = 90;
 
-// Movement speed. The Pi already smooths the target, so this is only a cap
-// that stops sudden jumps; it does not add more smoothing on top.
-const float trackSpeedDegPerSec = 90.0;
-const float returnSpeedDegPerSec = 20.0; // slow, eerie return to rest
+// Set to true if the eye moves the wrong way
+const bool reverseX = false;
+const bool reverseY = false;
 
-const unsigned long serialTimeoutMs = 500; // no valid message for this long = lost
-const unsigned long lostHoldMs = 1000;     // stare at the last spot before resting
-const unsigned long updateIntervalMs = 10; // servo update rate (100 Hz)
-const unsigned long partialLineMs = 100;   // drop an unfinished line after this
+// Speed: milliseconds per 1 degree of movement
+const int trackSpeed = 10; // following a face (100 degrees per second)
+const int restSpeed = 50;  // going back to center (20 degrees per second)
 
-// Pulse widths for 0 and 180 degrees. These are the Servo library defaults;
-// check your servo's datasheet before widening them.
-const int pulseMinUs = 544;
-const int pulseMaxUs = 2400;
+// No face (or no message from the Pi) for this long = go back to center
+const unsigned long lostTime = 1500;
 
-// ---------------- State ----------------
+int eyeXPosition = eyeCenterX; // where the eye is now
+int eyeYPosition = eyeCenterY;
+int targetX = eyeCenterX;      // where the eye is going
+int targetY = eyeCenterY;
+unsigned long lastFaceTime = 0;
+unsigned long lastMoveTime = 0;
 
-enum EyeMode {
-  MODE_REST,      // no target: at or moving to the rest position
-  MODE_TRACKING,  // following the Pi's targets (Pi state T or H)
-  MODE_LOST_HOLD  // target just lost: holding still before resting
-};
-
-struct Axis {
-  const AxisConfig& config;
-  float current;  // angle being written to the servo now
-  float target;   // angle we are moving toward
-  int lastPulse;
-  Servo servo;
-};
-
-Axis pan = {panConfig};
-Axis tilt = {tiltConfig};
-
-EyeMode mode = MODE_REST;
-unsigned long modeStartMs = 0;
-unsigned long lastUpdateMs = 0;
-
-// Latest valid message from the Pi
-TrackMessage latest = {'L', 90, 90};
-bool haveMessage = false;
-unsigned long lastMessageMs = 0;
-
-// Serial line buffer
-char lineBuffer[MESSAGE_MAX_LEN + 1];
-unsigned char lineLength = 0;
-bool lineTooLong = false;
-unsigned long lastByteMs = 0;
-unsigned int rejectedLines = 0;
-unsigned long lastRejectReportMs = 0;
-
-// ---------------- Future: scare and lighting ----------------
-// Scare behavior: set scareActive = true while a scare runs and set
-// pan.target / tilt.target from the scare animation in updateScare().
-// While it is true, serial messages are still read (so the newest target is
-// ready afterwards) but they do not move the eye. Targets still go through
-// the mechanical limits in updateServos(). When the scare ends, set
-// scareActive = false and tracking resumes at the normal speed limit.
-bool scareActive = false;
-
-void updateScare(unsigned long /* now */) {
-  // Not implemented yet. Example trigger: a button or IR sensor.
-}
-
-// Lighting: called every loop with the current mode, e.g. red while
-// MODE_TRACKING, orange while MODE_REST. Keep it non-blocking.
-// Note: NeoPixel show() pauses interrupts, which can drop serial bytes; only
-// call show() when a color actually changes. Dropped bytes only cost a message.
-void updateLighting(unsigned long /* now */, EyeMode /* currentMode */) {
-  // Not implemented yet.
-}
-
-// ---------------- Servo helpers ----------------
-
-// Keeps an angle inside the mechanical limits.
-float clampAngle(const AxisConfig& config, float angle) {
-  return constrain(angle, (float)config.minDeg, (float)config.maxDeg);
-}
-
-// Converts an angle from the Pi: reversal first, then the mechanical limits.
-float fromPi(const AxisConfig& config, int angle) {
-  float a = config.reverse ? 2 * config.centerDeg - angle : angle;
-  return clampAngle(config, a);
-}
-
-// Sends the current angle to the servo in microseconds, which gives smoother
-// motion than whole degrees while easing between targets.
-void writeServo(Axis& axis) {
-  float angle = clampAngle(axis.config, axis.current);
-  int pulse = pulseMinUs + (int)((pulseMaxUs - pulseMinUs) * angle / 180.0 + 0.5);
-  if (pulse != axis.lastPulse) {
-    axis.servo.writeMicroseconds(pulse);
-    axis.lastPulse = pulse;
-  }
-}
-
-void startAxis(Axis& axis) {
-  if (!axis.config.enabled) return;
-  float rest = clampAngle(axis.config, axis.config.restDeg);
-  axis.current = rest;
-  axis.target = rest;
-  // Writing before attach() makes the first pulse the rest position, not 90.
-  writeServo(axis);
-  axis.servo.attach(axis.config.pin, pulseMinUs, pulseMaxUs);
-}
-
-// Moves current toward target by at most maxStep degrees.
-void stepAxis(Axis& axis, float maxStep) {
-  if (!axis.config.enabled) return;
-  float error = axis.target - axis.current;
-  if (error > maxStep) error = maxStep;
-  if (error < -maxStep) error = -maxStep;
-  axis.current += error;
-  writeServo(axis);
-}
-
-// ---------------- Serial input ----------------
-
-void reportRejected(unsigned long now) {
-  // At most one report per second so errors cannot flood the serial line.
-  if (rejectedLines > 0 && now - lastRejectReportMs >= 1000) {
-    Serial.print(F("BAD "));
-    Serial.println(rejectedLines);
-    rejectedLines = 0;
-    lastRejectReportMs = now;
-  }
-}
-
-void handleLine(unsigned long now) {
-  lineBuffer[lineLength] = '\0';
-  TrackMessage msg;
-  if (!lineTooLong && parseMessage(lineBuffer, msg)) {
-    latest = msg;
-    haveMessage = true;
-    lastMessageMs = now;
-  } else if (lineLength > 0 || lineTooLong) {
-    rejectedLines++;
-  }
-  lineLength = 0;
-  lineTooLong = false;
-}
-
-// Reads whatever bytes have arrived. Never waits for more.
-void readSerial(unsigned long now) {
-  // Throw away a line that stopped arriving halfway (e.g. Pi script killed).
-  if (lineLength > 0 && now - lastByteMs > partialLineMs) {
-    lineLength = 0;
-    lineTooLong = false;
-    rejectedLines++;
-  }
-
-  int budget = 64;  // bounded so a flood of data cannot stall the servos
-  while (Serial.available() > 0 && budget-- > 0) {
-    char c = Serial.read();
-    lastByteMs = now;
-    if (c == '\r') continue;
-    if (c == '\n') {
-      handleLine(now);
-    } else if (lineLength < MESSAGE_MAX_LEN) {
-      lineBuffer[lineLength++] = c;
-    } else {
-      lineTooLong = true;  // keep discarding until the next newline
-    }
-  }
-}
-
-// ---------------- Eye behavior ----------------
-
-void setMode(EyeMode newMode, unsigned long now, const __FlashStringHelper* reason) {
-  if (newMode == mode) return;
-  mode = newMode;
-  modeStartMs = now;
-  Serial.print(F("MODE "));
-  Serial.println(reason);
-}
-
-void updateMode(unsigned long now) {
-  if (scareActive) return;  // the scare owns the targets
-
-  bool fresh = haveMessage && now - lastMessageMs <= serialTimeoutMs;
-  bool piTracking = fresh && (latest.state == 'T' || latest.state == 'H');
-
-  if (piTracking) {
-    setMode(MODE_TRACKING, now, F("TRACKING"));
-    pan.target = fromPi(pan.config, latest.pan);
-    tilt.target = fromPi(tilt.config, latest.tilt);
-  } else if (mode == MODE_TRACKING) {
-    // Freeze where the eye is right now.
-    setMode(MODE_LOST_HOLD, now, fresh ? F("HOLD lost") : F("HOLD timeout"));
-    pan.target = pan.current;
-    tilt.target = tilt.current;
-  } else if (mode == MODE_LOST_HOLD && now - modeStartMs >= lostHoldMs) {
-    setMode(MODE_REST, now, F("REST"));
-    pan.target = clampAngle(pan.config, pan.config.restDeg);
-    tilt.target = clampAngle(tilt.config, tilt.config.restDeg);
-  }
-}
-
-void updateServos(unsigned long now) {
-  unsigned long elapsed = now - lastUpdateMs;
-  if (elapsed < updateIntervalMs) return;
-  lastUpdateMs = now;
-  if (elapsed > 100) elapsed = 100;  // avoid a big jump after a long pause
-
-  float speed = (mode == MODE_REST) ? returnSpeedDegPerSec : trackSpeedDegPerSec;
-  float maxStep = speed * elapsed / 1000.0;
-  stepAxis(pan, maxStep);
-  stepAxis(tilt, maxStep);
-}
-
-// ---------------- Main ----------------
+char message[12];       // the line being received from the Pi
+int messageLength = 0;
 
 void setup() {
-  // Servos first, so the eye holds its rest position from power-up.
-  startAxis(pan);
-  startAxis(tilt);
+  // Setting the angle before attach() stops the eye jumping on startup
+  eyeX.write(eyeCenterX);
+  eyeX.attach(servoXPin);
+  if (useEyeY) {
+    eyeY.write(eyeCenterY);
+    eyeY.attach(servoYPin);
+  }
 
-  Serial.begin(baudRate);
-  // The Uno restarts whenever the Pi opens the port. The Pi waits for this
-  // line before sending, so no messages are lost during startup.
-  Serial.println(F("READY watcher-eye"));
-  lastUpdateMs = millis();
+  // The Uno restarts when the Pi connects. The Pi waits for this line.
+  Serial.begin(115200);
+  Serial.println("READY");
 }
 
 void loop() {
-  unsigned long now = millis();
-  readSerial(now);
-  updateScare(now);
-  updateMode(now);
-  updateServos(now);
-  updateLighting(now, mode);
-  reportRejected(now);
+  updateEye();
+
+  // Lighting, sound, and scares can go here later.
+  // During a scare, skip updateEye() and move the eye yourself.
+}
+
+void updateEye() {
+  unsigned long currentTime = millis();
+
+  // 1. Read the characters that have arrived (never waits for more)
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+
+    if (c != '\n') {
+      // Save the character. Lines that are too long get cut off,
+      // which makes them fail the check below.
+      if (c != '\r' && messageLength < 11) {
+        message[messageLength] = c;
+        messageLength++;
+      }
+      continue;
+    }
+
+    // A whole line has arrived. Check it, e.g. "T,94,90".
+    message[messageLength] = '\0';
+    messageLength = 0;
+
+    char state;
+    char extra;
+    int x;
+    int y;
+    int found = sscanf(message, "%c,%3d,%3d%c", &state, &x, &y, &extra);
+
+    // Use it only if it has exactly 3 parts, sensible angles, and a face
+    if (found == 3 && x >= 0 && x <= 180 && y >= 0 && y <= 180) {
+      if (state == 'T' || state == 'H') {
+        if (reverseX) x = 2 * eyeCenterX - x;
+        if (reverseY) y = 2 * eyeCenterY - y;
+        targetX = constrain(x, eyeLeft, eyeRight);
+        targetY = constrain(y, eyeDown, eyeUp);
+        lastFaceTime = currentTime;
+      }
+    }
+  }
+
+  // 2. Lost the face or the Pi stopped talking: go back to center.
+  // (Until then the eye just stays where it was looking.)
+  bool lost = currentTime - lastFaceTime > lostTime;
+  if (lost) {
+    targetX = eyeCenterX;
+    targetY = eyeCenterY;
+  }
+
+  // 3. Move 1 degree toward the target, slower when going back to center
+  int speed = trackSpeed;
+  if (lost) {
+    speed = restSpeed;
+  }
+  if (currentTime - lastMoveTime >= (unsigned long)speed) {
+    lastMoveTime = currentTime;
+
+    if (eyeXPosition < targetX) eyeXPosition++;
+    if (eyeXPosition > targetX) eyeXPosition--;
+    if (eyeYPosition < targetY) eyeYPosition++;
+    if (eyeYPosition > targetY) eyeYPosition--;
+
+    eyeX.write(eyeXPosition);
+    if (useEyeY) {
+      eyeY.write(eyeYPosition);
+    }
+  }
 }

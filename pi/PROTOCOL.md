@@ -31,12 +31,10 @@ Timing:
 - When `watcher.py` stops normally it sends one final `L` line. If it crashes
   or the cable is unplugged, nothing is sent. The Arduino has to notice the silence.
 - Startup: opening the port restarts the Uno. The sketch prints
-  `READY watcher-eye` once it is listening. The Pi waits for that line (up to
+  `READY` once it is listening. The Pi waits for that line (up to
   `reset_wait_s`) before sending anything.
-- The Arduino may print other lines back. `eye/eye.ino` prints `MODE TRACKING`,
-  `MODE HOLD lost`, `MODE HOLD timeout`, `MODE REST`, and `BAD <count>` for
-  rejected lines (at most once a second). With `echo = true` the Pi prints
-  them as `[arduino] ...`. The Pi never needs a reply.
+- The Arduino may print other lines back, e.g. for debugging. With
+  `echo = true` the Pi prints them as `[arduino] ...`. The Pi never needs a reply.
 
 The angles are **absolute targets**: "point the eye here". They aren't "move
 by this much". If the same face stays still, the same number keeps arriving.
@@ -45,7 +43,7 @@ by this much". If the same face stays still, the same number keeps arriving.
 
 The Pi already limits and smooths the angles, but treat its output as a request,
 not a command. A bug, a wrong config, or line noise on the Pi side must never
-be able to damage the eye. `eye/eye.ino` implements all of the points below.
+be able to damage the eye. `eye/eye.ino` does all of this in one function, `updateEye()`.
 
 ### 1. Reject bad lines
 
