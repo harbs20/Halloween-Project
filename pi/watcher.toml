@@ -37,7 +37,7 @@ center_deg = 90
 # Same limits as eyeLeft / eyeRight in eye.ino.
 min_deg = 50
 max_deg = 140
-reverse = true          # Eye is mounted upside down. Keep reverseX = false in eye.ino.
+reverse = false         # Checked on the eye. Keep reverseX = false in eye.ino.
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
 gain = 2.5              # >1 exaggerates movement. Higher = small steps swing the eye further.
 deadband_deg = 0.5
@@ -48,8 +48,8 @@ deadband_deg = 0.5
 enabled = true
 center_deg = 90
 # Same limits as eyeDown / eyeUp in eye.ino. Widen slowly after testing.
-min_deg = 85
-max_deg = 95
+min_deg = 70
+max_deg = 110
 reverse = false         # Checked on the eye: not reversed.
 fov_deg = 41            # IMX708 standard lens vertical FOV. Wide lens: 67.
 gain = 2.0
