@@ -17,8 +17,8 @@ const int servoYPin = 10;
 const bool useEyeY = false; // set to true when the up-down servo is added
 
 // Eye movement limits. The eye is never moved past these.
-const int eyeLeft = 80;
-const int eyeRight = 100;
+const int eyeLeft = 50;
+const int eyeRight = 140;
 const int eyeDown = 85;
 const int eyeUp = 95;
 
@@ -27,7 +27,7 @@ const int eyeCenterX = 90;
 const int eyeCenterY = 90;
 
 // Set to true if the eye moves the wrong way
-const bool reverseX = false;
+const bool reverseX = true;
 const bool reverseY = false;
 
 // Speed: milliseconds per 1 degree of movement
@@ -71,13 +71,10 @@ void loop() {
 void updateEye() {
   unsigned long currentTime = millis();
 
-  // 1. Read the characters that have arrived (never waits for more)
   while (Serial.available() > 0) {
     char c = Serial.read();
 
     if (c != '\n') {
-      // Save the character. Lines that are too long get cut off,
-      // which makes them fail the check below.
       if (c != '\r' && messageLength < 11) {
         message[messageLength] = c;
         messageLength++;
@@ -85,7 +82,6 @@ void updateEye() {
       continue;
     }
 
-    // A whole line has arrived. Check it, e.g. "T,94,90".
     message[messageLength] = '\0';
     messageLength = 0;
 
@@ -107,15 +103,12 @@ void updateEye() {
     }
   }
 
-  // 2. Lost the face or the Pi stopped talking: go back to center.
-  // (Until then the eye just stays where it was looking.)
-  bool lost = currentTime - lastFaceTime > lostTime;
+  bool lost = currentTime - lastFaceTime > lostTime; // if face lost
   if (lost) {
     targetX = eyeCenterX;
     targetY = eyeCenterY;
   }
 
-  // 3. Move 1 degree toward the target, slower when going back to center
   int speed = trackSpeed;
   if (lost) {
     speed = restSpeed;
