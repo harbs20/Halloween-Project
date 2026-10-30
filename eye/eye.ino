@@ -25,14 +25,14 @@ const int servoYPin = 10;
 const bool useEyeY = true;  // up-down servo on pin 10
 
 // Eye movement limits. The eye is never moved past these.
-const int eyeLeft = 45;
-const int eyeRight = 135;
-const int eyeDown = 70;
-const int eyeUp = 110;
+const int eyeLeft = 52;
+const int eyeRight = 142;
+const int eyeDown = 69;
+const int eyeUp = 109;
 
 // Where the eye looks when nobody is there
-const int eyeCenterX = 90;
-const int eyeCenterY = 90;
+const int eyeCenterX = 97;
+const int eyeCenterY = 89;
 
 // Set to true if the eye moves the wrong way
 const bool reverseX = false;
