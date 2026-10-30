@@ -2,7 +2,6 @@
 # PI_USER and PI_DIR are filled in when it is installed (see README.md).
 [Unit]
 Description=The Watcher face tracking
-After=multi-user.target
 
 [Service]
 User=PI_USER
