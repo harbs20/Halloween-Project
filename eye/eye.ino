@@ -39,7 +39,7 @@ const bool reverseX = false;
 const bool reverseY = false;
 
 const int trackSpeed = 2;  // ms per degree while tracking (500 degrees per second)
-const int restSpeed = 50;  
+const int restSpeed = 150; // ms per degree going back to center (slow, creepy drift: about 7 degrees per second)
 
 // No face (or no message from the Pi) for this long = go back to center
 const unsigned long lostTime = 1500;
@@ -51,14 +51,13 @@ int targetY = eyeCenterY;
 unsigned long lastFaceTime = 0;
 unsigned long lastMoveTime = 0;
 
-char message[12];       
+char message[12];
 int messageLength = 0;
 
+bool mp3Ready = false; // false if the MP3 player didn't answer at startup
+
 void setup() {
-  softwareSerial.begin(9600);
-  if (!mp3Player.begin(softwareSerial)){
-    while(true){}
-  }
+  // Servos first, so the eye holds still at center no matter what happens next.
   // Setting the angle before attach() stops the eye jumping on startup
   eyeX.write(eyeCenterX);
   eyeX.attach(servoXPin);
@@ -67,12 +66,22 @@ void setup() {
     eyeY.attach(servoYPin);
   }
 
-  // The Uno restarts when the Pi connects. The Pi waits for this line.
   Serial.begin(115200);
+
+  // Try the MP3 player once. If it isn't there (unplugged, no SD card),
+  // keep going without sound instead of freezing.
+  softwareSerial.begin(9600);
+  mp3Ready = mp3Player.begin(softwareSerial);
+
+  // The Uno restarts when the Pi connects. The Pi waits for this line.
   Serial.println("READY");
 
-  mp3Player.volume(20);
-  mp3Player.play(1);
+  if (mp3Ready) {
+    mp3Player.volume(20);
+    mp3Player.play(1);
+  } else {
+    Serial.println("MP3 player not found, running without sound");
+  }
 }
 
 void loop() {
