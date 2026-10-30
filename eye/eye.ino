@@ -39,7 +39,7 @@ const bool reverseX = false;
 const bool reverseY = false;
 
 const int trackSpeed = 2;  // ms per degree while tracking (500 degrees per second)
-const int restSpeed = 150; // ms per degree going back to center (slow, creepy drift: about 7 degrees per second)
+const int restSpeed = 100; // ms per degree going back to center (creepy drift: 10 degrees per second, 4-5 s from either side)
 
 // No face (or no message from the Pi) for this long = go back to center
 const unsigned long lostTime = 1500;
