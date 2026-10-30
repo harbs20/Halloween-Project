@@ -25,8 +25,8 @@ const int servoYPin = 10;
 const bool useEyeY = true;  // up-down servo on pin 10
 
 // Eye movement limits. The eye is never moved past these.
-const int eyeLeft = 50;
-const int eyeRight = 140;
+const int eyeLeft = 45;
+const int eyeRight = 135;
 const int eyeDown = 70;
 const int eyeUp = 110;
 
@@ -77,7 +77,7 @@ void setup() {
   Serial.println("READY");
 
   if (mp3Ready) {
-    mp3Player.volume(20);
+    mp3Player.volume(30);
     mp3Player.play(1);
   } else {
     Serial.println("MP3 player not found, running without sound");

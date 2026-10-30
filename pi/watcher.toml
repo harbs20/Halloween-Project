@@ -35,8 +35,8 @@ min_face_px = 20        # Ignore faces narrower than this many pixels.
 enabled = true
 center_deg = 90
 # Same limits as eyeLeft / eyeRight in eye.ino.
-min_deg = 50
-max_deg = 140
+min_deg = 45
+max_deg = 135
 reverse = false         # Checked on the eye. Keep reverseX = false in eye.ino.
 fov_deg = 66           # IMX708 standard lens horizontal FOV. Wide lens: 102.
 gain = 2.5              # >1 exaggerates movement. Higher = small steps swing the eye further.
