@@ -48,7 +48,7 @@ To add this to `main.ino` later, copy the settings, variables, and
 `Serial.begin(9600)` to `Serial.begin(115200)`. Remove the joystick
 `eyeX.write`/`eyeY.write` lines so they don't fight over the servos.
 
-The Servo library uses Timer1, so `analogWrite()` doesn't work on pins 9 and 10
+The servos use Adafruit_TiCoServo (install it from the Library Manager), which uses Timer1, so `analogWrite()` doesn't work on pins 9 and 10
 while servos are attached. Your LED pins 3, 5, and 6 are fine.
 
 ## Wiring

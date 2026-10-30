@@ -17,7 +17,7 @@ case "$action" in
   setup)
     "$cli" core update-index
     "$cli" core install arduino:avr@1.8.7
-    "$cli" lib install Servo@1.3.0 'Adafruit NeoPixel@1.15.5' 'LiquidCrystal I2C@1.1.2'
+    "$cli" lib install Servo@1.3.0 'Adafruit NeoPixel@1.15.5' 'Adafruit TiCoServo@1.0.6' 'LiquidCrystal I2C@1.1.2'
     ;;
   boards)
     "$cli" board list

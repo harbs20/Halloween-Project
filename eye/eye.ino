@@ -9,16 +9,20 @@
 //   then the left-right angle and the up-down angle.
 // updateEye() reads those lines and moves the eye there
 
-#include <Servo.h>
+#include <Adafruit_TiCoServo.h>
 #include <SoftwareSerial.h>
 #include <DFRobotDFPlayerMini.h>
+#include <Adafruit_NeoPixel.h>
 
 SoftwareSerial softwareSerial(2, 3);
 
 DFRobotDFPlayerMini mp3Player;
 
-Servo eyeX; // left-right servo
-Servo eyeY; // up-down servo
+// TiCoServo makes the servo pulses with the Uno's hardware timer, so the LED
+// strip's show() can't stretch them and make the eye twitch.
+// It only works on pins 9 and 10.
+Adafruit_TiCoServo eyeX; // left-right servo
+Adafruit_TiCoServo eyeY; // up-down servo
 
 const int servoXPin = 9;
 const int servoYPin = 10;
@@ -51,6 +55,36 @@ int targetY = eyeCenterY;
 unsigned long lastFaceTime = 0;
 unsigned long lastMoveTime = 0;
 
+
+
+// LED strip: slow red-orange fade, red pulse when someone is close
+const int ledPin = 11;      // not 9 or 10 (the servos use those)
+const int ledCount = 10;
+Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
+
+const int fadeSpeed = 5;    // ms per step of the red-orange fade (bigger = slower)
+const int maxGreen = 100;   // how orange the fade gets (0 = red, 100 = orange)
+const int pulseSpeed = 4;   // ms per step of the red pulse (bigger = slower)
+const int pulseLow = 20;    // dimmest red during the pulse (0-255)
+const int pulseHigh = 255;  // brightest red
+
+int green = 0;               // 0 = red, maxGreen = orange
+int fadeDirection = 1;       // 1 = toward orange, -1 = back toward red
+int pulseBrightness = pulseLow;
+int pulseDirection = 1;
+unsigned long lastFadeTime = 0;
+unsigned long lastShowTime = 0;
+
+// Ultrasonic distance sensor
+const int trigPin = 5;
+const int echoPin = 4;
+const int scareDistance = 50;          // cm: closer than this starts the red pulse
+const unsigned long scareHold = 1000;  // keep pulsing this long after they step back
+
+float dist = 999;  // last measured distance in cm (999 = nobody)
+unsigned long lastPingTime = 0;
+unsigned long lastCloseTime = 0;
+
 char message[12];
 int messageLength = 0;
 
@@ -58,26 +92,30 @@ bool mp3Ready = false; // false if the MP3 player didn't answer at startup
 
 void setup() {
   // Servos first, so the eye holds still at center no matter what happens next.
-  // Setting the angle before attach() stops the eye jumping on startup
-  eyeX.write(eyeCenterX);
+  // No pulses go out until the first write(), so the eye doesn't jump on startup
   eyeX.attach(servoXPin);
+  eyeX.write(eyeCenterX);
   if (useEyeY) {
-    eyeY.write(eyeCenterY);
     eyeY.attach(servoYPin);
+    eyeY.write(eyeCenterY);
   }
 
   Serial.begin(115200);
 
-  // Try the MP3 player once. If it isn't there (unplugged, no SD card),
-  // keep going without sound instead of freezing.
   softwareSerial.begin(9600);
   mp3Ready = mp3Player.begin(softwareSerial);
-
+  
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  
+  strip.begin();
+  strip.setBrightness(150);
+  strip.show();
   // The Uno restarts when the Pi connects. The Pi waits for this line.
   Serial.println("READY");
 
   if (mp3Ready) {
-    mp3Player.volume(30);
+    mp3Player.volume(20);
     mp3Player.play(1);
   } else {
     Serial.println("MP3 player not found, running without sound");
@@ -86,9 +124,8 @@ void setup() {
 
 void loop() {
   updateEye();
-
-  // Lighting, sound, and scares can go here later.
-  // During a scare, skip updateEye() and move the eye yourself.
+  updateDistance();
+  updateLights();
 }
 
 void updateEye() {
@@ -148,5 +185,71 @@ void updateEye() {
     if (useEyeY) {
       eyeY.write(eyeYPosition);
     }
+  }
+}
+
+// Measures the distance in cm, at most every 60 ms. The 6000 us timeout
+// (about 1 m) keeps pulseIn from freezing the eye when nothing echoes back.
+void updateDistance() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastPingTime < 60) return;
+  lastPingTime = currentTime;
+
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  unsigned long duration = pulseIn(echoPin, HIGH, 6000);
+  if (duration == 0) {
+    dist = 999;  // no echo = nobody close
+  } else {
+    dist = duration * 0.0343 / 2;
+  }
+
+  if (dist < scareDistance) {
+    lastCloseTime = currentTime;
+  }
+}
+
+void updateLights() {
+  unsigned long currentTime = millis();
+  bool close = lastCloseTime > 0 && currentTime - lastCloseTime < scareHold;
+
+  if (close) {
+    // Pulse solid red between pulseLow and pulseHigh
+    if (currentTime - lastFadeTime < (unsigned long)pulseSpeed) return;
+    lastFadeTime = currentTime;
+
+    pulseBrightness += pulseDirection * 5;
+    if (pulseBrightness >= pulseHigh || pulseBrightness <= pulseLow) {
+      pulseDirection = -pulseDirection;
+      pulseBrightness = constrain(pulseBrightness, pulseLow, pulseHigh);
+    }
+
+    for (int i = 0; i < ledCount; i++) {
+      strip.setPixelColor(i, strip.Color(pulseBrightness, 0, 0));
+    }
+  } else {
+    // Normal slow red-orange fade
+    if (currentTime - lastFadeTime < (unsigned long)fadeSpeed) return;
+    lastFadeTime = currentTime;
+
+    green += fadeDirection;
+    if (green >= maxGreen || green <= 0) {
+      fadeDirection = -fadeDirection;
+    }
+
+    for (int i = 0; i < ledCount; i++) {
+      strip.setPixelColor(i, strip.Color(150, green * 150 / 255, 0));  // dimmer fade
+    }
+  }
+
+  // show() pauses the Arduino for a moment, which can drop bytes from the Pi,
+  // so only send the colors to the strip every 20 ms (50 times a second).
+  if (currentTime - lastShowTime >= 20) {
+    lastShowTime = currentTime;
+    strip.show();
   }
 }
