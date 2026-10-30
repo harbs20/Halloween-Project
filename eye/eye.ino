@@ -1,3 +1,5 @@
+
+
 // The Watcher - eye servo code
 // by @harbs20
 // CS8: Engineering - Spooktacular Halloween Project
@@ -8,6 +10,12 @@
 // updateEye() reads those lines and moves the eye there
 
 #include <Servo.h>
+#include <SoftwareSerial.h>
+#include <DFRobotDFPlayerMini.h>
+
+SoftwareSerial softwareSerial(2, 3);
+
+DFRobotDFPlayerMini mp3Player;
 
 Servo eyeX; // left-right servo
 Servo eyeY; // up-down servo
@@ -47,6 +55,10 @@ char message[12];
 int messageLength = 0;
 
 void setup() {
+  softwareSerial.begin(9600);
+  if (!mp3Player.begin(softwareSerial)){
+    while(true){}
+  }
   // Setting the angle before attach() stops the eye jumping on startup
   eyeX.write(eyeCenterX);
   eyeX.attach(servoXPin);
@@ -58,6 +70,9 @@ void setup() {
   // The Uno restarts when the Pi connects. The Pi waits for this line.
   Serial.begin(115200);
   Serial.println("READY");
+
+  mp3Player.volume(20);
+  mp3Player.play(1);
 }
 
 void loop() {

@@ -13,6 +13,7 @@ port. The line protocol is documented in PROTOCOL.md.
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 import time
 import tomllib
@@ -215,6 +216,10 @@ def main() -> None:
     if args.list_ports:
         list_ports()
         return
+
+    # When the service is stopped, systemd sends SIGTERM instead of Ctrl+C.
+    # Exiting this way still runs the cleanup below, so the eye gets "L".
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     # Build each part from the settings in watcher.toml.
     cfg = load_config(args.config)

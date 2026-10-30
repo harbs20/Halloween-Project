@@ -11,6 +11,8 @@ to the Arduino over USB. The Arduino side is described in
 | `tracking.py` | Face selection, smoothing, HOLD/LOST logic, angle mapping. No camera needed. |
 | `watcher.toml` | All adjustable settings. |
 | `setup.sh` | Checks OS/Python/package versions and downloads the face model. |
+| `start_watcher.sh` | Finds the Arduino's port and starts `watcher.py --serial`. |
+| `watcher.service` | Runs `start_watcher.sh` automatically at boot (systemd). |
 | `test_tracking.py` | Tests for `tracking.py`: `python3 -m unittest -v` |
 
 ## Detector choice: YuNet (OpenCV)
@@ -116,6 +118,35 @@ The port is never guessed. Prefer the `/dev/serial/by-id/...` name shown by
 denied", run `sudo usermod -aG dialout $USER`, then log out and back in. The
 Uno restarts when the port opens, so the script waits for the sketch's `READY`
 line before sending. Upload the eye firmware first; see [../eye/README.md](../eye/README.md).
+
+## Step 4: start automatically at boot
+
+Once Step 3 works, install the service from this `pi` folder. It fills in your
+username and this folder's path:
+
+```bash
+sed -e "s|PI_DIR|$PWD|g" -e "s|PI_USER|$USER|g" watcher.service | sudo tee /etc/systemd/system/watcher.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now watcher
+```
+
+From then on The Watcher starts by itself at every boot, with no screen or
+login needed. `start_watcher.sh` finds the Uno by itself, so you don't type a
+port. If it stops (for example the Uno is unplugged), systemd starts it again
+3 seconds later.
+
+| Do this | Command |
+|---|---|
+| Watch its output live (Ctrl+C to stop watching) | `journalctl -u watcher -f` |
+| Is it running? | `systemctl status watcher` |
+| Stop it (e.g. to run it by hand or test) | `sudo systemctl stop watcher` |
+| Start it again | `sudo systemctl start watcher` |
+| Restart after `git pull` or editing `watcher.toml` | `sudo systemctl restart watcher` |
+| Turn off starting at boot | `sudo systemctl disable --now watcher` |
+
+Only one program can use the camera and the serial port at a time, so stop the
+service before running `watcher.py` by hand. If you move the project folder,
+run the three install commands again.
 
 ## Calibrating the eye
 

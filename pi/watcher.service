@@ -1,0 +1,14 @@
+# Runs The Watcher at boot and restarts it if it stops.
+# PI_USER and PI_DIR are filled in when it is installed (see README.md).
+[Unit]
+Description=The Watcher face tracking
+After=multi-user.target
+
+[Service]
+User=PI_USER
+ExecStart=PI_DIR/start_watcher.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
