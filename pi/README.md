@@ -13,6 +13,7 @@ to the Arduino over USB. The Arduino side is described in
 | `setup.sh` | Checks OS/Python/package versions and downloads the face model. |
 | `start_watcher.sh` | Finds the Arduino's port and starts `watcher.py --serial`. |
 | `watcher.service` | Runs `start_watcher.sh` automatically at boot (systemd). |
+| `center_test.py` | Move the eye by hand to find its true center (see `../eye/README.md`). |
 | `test_tracking.py` | Tests for `tracking.py`: `python3 -m unittest -v` |
 
 ## Detector choice: YuNet (OpenCV)

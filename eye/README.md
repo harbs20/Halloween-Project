@@ -154,3 +154,31 @@ to side: the horn follows, and the terminal's `pan=` matches.
 the servo at rest and the eye looking straight ahead. Move the eye gently by
 hand to check it clears the CAD parts across 80–100°. Widen `eyeLeft`/`eyeRight`
 a few degrees at a time, here and in `pi/watcher.toml`, testing each time.
+
+## Finding the true center
+
+`pi/center_test.py` lets you move the eye by hand from the Pi's terminal. It
+re-sends your angle 30 times a second, so the eye holds still instead of
+drifting back after 1.5 s.
+
+```bash
+sudo systemctl stop watcher      # free the serial port
+cd ~/Halloween-Project/pi        # or wherever the project is
+python3 center_test.py
+```
+
+| Type | Does |
+|---|---|
+| `95` | left-right to 95 |
+| `95 88` | left-right to 95, up-down to 88 |
+| `a` / `d` | left-right down / up 1° |
+| `s` / `w` | up-down down / up 1° |
+| `q` | quit and print the settings to use |
+
+Nudge it until the eye looks straight ahead, then press `q`. Put the printed
+centers in `eye.ino` (`eyeCenterX`, `eyeCenterY`) **and** `pi/watcher.toml`
+(`center_deg` under `[pan]` and `[tilt]`). Shift the limits by the same amount,
+upload `eye.ino`, then run `sudo systemctl start watcher`.
+
+Angles outside the current limits stop at the limit, because the Arduino still
+enforces them.
