@@ -57,9 +57,9 @@ unsigned long lastMoveTime = 0;
 
 
 
-// LED strip: slow red-orange fade, red pulse when someone is close
+// One LED behind the eye: slow red-orange fade, red pulse when someone is close
 const int ledPin = 11;      // not 9 or 10 (the servos use those)
-const int ledCount = 10;
+const int ledCount = 1;     // just the one behind the eye
 Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
 
 const int fadeSpeed = 5;    // ms per step of the red-orange fade (bigger = slower)
@@ -92,11 +92,15 @@ bool mp3Ready = false; // false if the MP3 player didn't answer at startup
 
 void setup() {
   // Servos first, so the eye holds still at center no matter what happens next.
-  // No pulses go out until the first write(), so the eye doesn't jump on startup
+  // No pulses go out until the first write(), so the eye doesn't jump on startup.
+  // Attach both before writing either: attach() resets the timer, which
+  // switches off a servo that has already been written to.
   eyeX.attach(servoXPin);
-  eyeX.write(eyeCenterX);
   if (useEyeY) {
     eyeY.attach(servoYPin);
+  }
+  eyeX.write(eyeCenterX);
+  if (useEyeY) {
     eyeY.write(eyeCenterY);
   }
 
