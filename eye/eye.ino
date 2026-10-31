@@ -60,6 +60,7 @@ unsigned long lastMoveTime = 0;
 // One LED behind the eye: slow red-orange fade, red pulse when someone is close
 const int ledPin = 11;      // not 9 or 10 (the servos use those)
 const int ledCount = 1;     // just the one behind the eye
+const int ledBrightness = 150;  // overall LED brightness, 0 (off) to 255 (full)
 Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
 
 const int fadeSpeed = 5;    // ms per step of the red-orange fade (bigger = slower)
@@ -75,15 +76,7 @@ int pulseDirection = 1;
 unsigned long lastFadeTime = 0;
 unsigned long lastShowTime = 0;
 
-// Ultrasonic distance sensor
-const int trigPin = 5;
-const int echoPin = 4;
-const int scareDistance = 50;          // cm: closer than this starts the red pulse
-const unsigned long scareHold = 1000;  // keep pulsing this long after they step back
 
-float dist = 999;  // last measured distance in cm (999 = nobody)
-unsigned long lastPingTime = 0;
-unsigned long lastCloseTime = 0;
 
 char message[12];
 int messageLength = 0;
@@ -113,7 +106,7 @@ void setup() {
   pinMode(echoPin, INPUT);
   
   strip.begin();
-  strip.setBrightness(150);
+  strip.setBrightness(ledBrightness);
   strip.show();
   // The Uno restarts when the Pi connects. The Pi waits for this line.
   Serial.println("READY");
@@ -128,7 +121,7 @@ void setup() {
 
 void loop() {
   updateEye();
-  updateDistance();
+  
   updateLights();
 }
 
@@ -194,28 +187,7 @@ void updateEye() {
 
 // Measures the distance in cm, at most every 60 ms. The 6000 us timeout
 // (about 1 m) keeps pulseIn from freezing the eye when nothing echoes back.
-void updateDistance() {
-  unsigned long currentTime = millis();
-  if (currentTime - lastPingTime < 60) return;
-  lastPingTime = currentTime;
 
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-
-  unsigned long duration = pulseIn(echoPin, HIGH, 6000);
-  if (duration == 0) {
-    dist = 999;  // no echo = nobody close
-  } else {
-    dist = duration * 0.0343 / 2;
-  }
-
-  if (dist < scareDistance) {
-    lastCloseTime = currentTime;
-  }
-}
 
 void updateLights() {
   unsigned long currentTime = millis();
