@@ -57,7 +57,7 @@ unsigned long lastMoveTime = 0;
 
 
 
-// One LED behind the eye: slow red-orange fade, red pulse when someone is close
+// One LED behind the eye: slow red-orange fade
 const int ledPin = 11;      // not 9 or 10 (the servos use those)
 const int ledCount = 1;     // just the one behind the eye
 const int ledBrightness = 150;  // overall LED brightness, 0 (off) to 255 (full)
@@ -65,14 +65,9 @@ Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
 
 const int fadeSpeed = 5;    // ms per step of the red-orange fade (bigger = slower)
 const int maxGreen = 100;   // how orange the fade gets (0 = red, 100 = orange)
-const int pulseSpeed = 4;   // ms per step of the red pulse (bigger = slower)
-const int pulseLow = 20;    // dimmest red during the pulse (0-255)
-const int pulseHigh = 255;  // brightest red
 
 int green = 0;               // 0 = red, maxGreen = orange
 int fadeDirection = 1;       // 1 = toward orange, -1 = back toward red
-int pulseBrightness = pulseLow;
-int pulseDirection = 1;
 unsigned long lastFadeTime = 0;
 unsigned long lastShowTime = 0;
 
@@ -102,9 +97,6 @@ void setup() {
   softwareSerial.begin(9600);
   mp3Ready = mp3Player.begin(softwareSerial);
   
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-  
   strip.begin();
   strip.setBrightness(ledBrightness);
   strip.show();
@@ -121,7 +113,6 @@ void setup() {
 
 void loop() {
   updateEye();
-  
   updateLights();
 }
 
@@ -185,41 +176,20 @@ void updateEye() {
   }
 }
 
-// Measures the distance in cm, at most every 60 ms. The 6000 us timeout
-// (about 1 m) keeps pulseIn from freezing the eye when nothing echoes back.
-
-
 void updateLights() {
   unsigned long currentTime = millis();
-  bool close = lastCloseTime > 0 && currentTime - lastCloseTime < scareHold;
 
-  if (close) {
-    // Pulse solid red between pulseLow and pulseHigh
-    if (currentTime - lastFadeTime < (unsigned long)pulseSpeed) return;
-    lastFadeTime = currentTime;
+  // Slow red-orange fade
+  if (currentTime - lastFadeTime < (unsigned long)fadeSpeed) return;
+  lastFadeTime = currentTime;
 
-    pulseBrightness += pulseDirection * 5;
-    if (pulseBrightness >= pulseHigh || pulseBrightness <= pulseLow) {
-      pulseDirection = -pulseDirection;
-      pulseBrightness = constrain(pulseBrightness, pulseLow, pulseHigh);
-    }
+  green += fadeDirection;
+  if (green >= maxGreen || green <= 0) {
+    fadeDirection = -fadeDirection;
+  }
 
-    for (int i = 0; i < ledCount; i++) {
-      strip.setPixelColor(i, strip.Color(pulseBrightness, 0, 0));
-    }
-  } else {
-    // Normal slow red-orange fade
-    if (currentTime - lastFadeTime < (unsigned long)fadeSpeed) return;
-    lastFadeTime = currentTime;
-
-    green += fadeDirection;
-    if (green >= maxGreen || green <= 0) {
-      fadeDirection = -fadeDirection;
-    }
-
-    for (int i = 0; i < ledCount; i++) {
-      strip.setPixelColor(i, strip.Color(150, green * 150 / 255, 0));  // dimmer fade
-    }
+  for (int i = 0; i < ledCount; i++) {
+    strip.setPixelColor(i, strip.Color(150, green * 150 / 255, 0));  // dimmer fade
   }
 
   // show() pauses the Arduino for a moment, which can drop bytes from the Pi,
